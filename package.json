@@ -1,0 +1,9 @@
+{
+  "name": "moji-recepti",
+  "version": "1.0.0",
+  "description": "Lična kolekcija zdravih, high-protein recepata — vanilla JS, bez build koraka.",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve ."
+  }
+}
