@@ -40,7 +40,7 @@ function renderList(){
     const btn = document.createElement('button');
     btn.className = 'row-card';
     btn.innerHTML = `
-      <span class="thumb" style="background:${style.tint}; color:${style.color};">${visualHTML(r, '64%')}</span>
+      <span class="thumb" style="background:${style.tint}; color:${style.color};">${visualHTML(r, '62%')}</span>
       <span class="row-content">
         <span class="row-title">${r.title}</span>
         <span class="row-meta">
@@ -48,10 +48,9 @@ function renderList(){
           <span class="dot">·</span>
           <span class="stats">${total.kcal} kcal${r.nutrition.hasProtein ? ' · ' + total.protein : ''}</span>
         </span>
-      </span>
-      <span class="row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>`;
+      </span>`;
     btn.addEventListener('click', () => {
-      try { showDetail(r.id); }
+      try { navigateToDetail(r.id); }
       catch(e){ console.error('Otvaranje recepta nije uspelo:', e); }
     });
     listEl.appendChild(btn);
@@ -82,6 +81,9 @@ function renderDetail(r){
   meta.appendChild(stat(r.servings, 'Porcije'));
   meta.appendChild(stat(total.kcal, 'Kcal'));
   if (r.nutrition.hasProtein) meta.appendChild(stat(total.protein, 'Proteini'));
+  // kopija za levu kolonu na desktopu (CSS bira koja se vidi)
+  const metaSide = document.getElementById('metaSide');
+  if (metaSide) metaSide.innerHTML = meta.innerHTML;
 
   const ingWrap = document.getElementById('ingredients');
   ingWrap.innerHTML = '';
@@ -180,6 +182,7 @@ function renderDetail(r){
     src.style.display = 'none';
   }
 
+  placeNutrition();
   updateBadge();
 }
 
@@ -214,7 +217,44 @@ function showDetail(id){
   try { window.scrollTo(0,0); } catch(e){ /* ignore in restricted preview */ }
 }
 
-document.getElementById('navDetail').addEventListener('click', showList);
+/* ---- ruter (hash-based) — omogućava da back dugme na telefonu vrati na listu ---- */
+function routeHash(id){
+  return '#/recept/' + encodeURIComponent(id);
+}
+function navigateToDetail(id){
+  history.pushState(null, '', routeHash(id));
+  showDetail(id);
+}
+function navigateToList(){
+  if (location.hash) history.pushState(null, '', location.pathname + location.search);
+  showList();
+}
+function handleRoute(){
+  const match = location.hash.match(/^#\/recept\/(.+)$/);
+  const id = match ? decodeURIComponent(match[1]) : null;
+  const r = id ? recipes.find(x => x.id === id) : null;
+  if (r) showDetail(r.id);
+  else showList();
+}
+window.addEventListener('popstate', handleRoute);
+
+/* ---- raspored: na desktopu tabela kalorija ide u levu kolonu, ispod statistike ---- */
+const desktopMQ = window.matchMedia('(min-width: 1000px)');
+function placeNutrition(){
+  const section = document.getElementById('nutritionSection');
+  if (!section) return;
+  if (desktopMQ.matches){
+    document.querySelector('.card-media').appendChild(section);
+  } else {
+    document.querySelector('.card-body').insertBefore(section, document.getElementById('src'));
+  }
+}
+desktopMQ.addEventListener('change', placeNutrition);
+
+document.getElementById('navDetail').addEventListener('click', () => {
+  if (location.hash) history.back();
+  else showList();
+});
 document.getElementById('fabBtn').addEventListener('click', openSheet);
 document.getElementById('sheetClose').addEventListener('click', closeSheet);
 document.getElementById('overlay').addEventListener('click', closeSheet);
@@ -229,9 +269,24 @@ document.getElementById('clearBtn').addEventListener('click', () => {
 });
 
 /* ====================================================================
-   INIT
+   INIT — pozvano iz js/firebase-data.js kad recepti stignu iz Firestore-a
 ==================================================================== */
-renderFilters();
-renderList();
-loadShoppingList();
-showList();
+function initApp(){
+  renderFilters();
+  if (window.recipesLoadError){
+    document.getElementById('list').innerHTML = `<div class="empty-list">Nije moguće učitati recepte. Proveri internet konekciju i pokušaj ponovo.</div>`;
+    document.getElementById('listCount').textContent = '';
+  } else {
+    renderList();
+  }
+  loadShoppingList();
+  // ako je stranica otvorena direktno na linku recepta, ubaci "listu" ispod
+  // u istoriju da back dugme (u appu ili na telefonu) uvek prvo vodi na listu
+  if (/^#\/recept\//.test(location.hash)){
+    const detailHash = location.hash;
+    history.replaceState(null, '', location.pathname + location.search);
+    history.pushState(null, '', detailHash);
+  }
+  handleRoute();
+}
+window.initApp = initApp;

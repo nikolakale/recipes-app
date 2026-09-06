@@ -1,0 +1,21 @@
+{
+	"name": "worker",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"test": "vitest"
+	},
+	"devDependencies": {
+		"@cloudflare/vitest-plugin": "^1.0.0",
+		"vitest": "~4.1.0",
+		"wrangler": "^4"
+	},
+	"dependencies": {
+		"@cloudflare/workers-oauth-provider": "^0.10.3",
+		"@modelcontextprotocol/server": "^2.0.0",
+		"zod": "^4.0.0"
+	}
+}

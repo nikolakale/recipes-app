@@ -1,0 +1,15 @@
+{
+	"name": "recepti-mcp",
+	"main": "src/index.js",
+	"compatibility_date": "2026-09-05",
+	"compatibility_flags": ["global_fetch_strictly_public"],
+	"observability": {
+		"enabled": true,
+	},
+	"kv_namespaces": [
+		{
+			"binding": "OAUTH_KV",
+			"id": "9024c53faae646b3adcad9df1df9bfa4",
+		},
+	],
+}

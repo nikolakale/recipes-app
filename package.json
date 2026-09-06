@@ -5,5 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "npx serve ."
+  },
+  "devDependencies": {
+    "firebase-admin": "^14.3.0"
   }
 }

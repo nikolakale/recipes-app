@@ -27,18 +27,22 @@
   <!-- ===== list view ===== -->
   <div id="listView">
     <div class="filters" id="filters"></div>
-    <div class="list" id="list"></div>
+    <div class="list" id="list"><div class="empty-list">Učitavanje recepata…</div></div>
   </div>
 
   <!-- ===== detail view ===== -->
   <div id="detailView">
     <article class="card">
-      <div class="hero" id="hero">
-        <div id="heroVisual" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
-        <span class="hero-tag" id="tab"></span>
-        <button class="hero-save" id="saveBtn" aria-label="Sačuvaj recept">
-          <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-10-9.2C.4 8.4 2 4.5 6 4c2-.2 3.6.8 6 3 2.4-2.2 4-3.2 6-3 4 .5 5.6 4.4 4 7.8C19.5 16.4 12 21 12 21z"/></svg>
-        </button>
+      <div class="card-media">
+        <div class="hero" id="hero">
+          <div id="heroVisual" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
+          <span class="hero-tag" id="tab"></span>
+          <button class="hero-save" id="saveBtn" aria-label="Sačuvaj recept">
+            <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-10-9.2C.4 8.4 2 4.5 6 4c2-.2 3.6.8 6 3 2.4-2.2 4-3.2 6-3 4 .5 5.6 4.4 4 7.8C19.5 16.4 12 21 12 21z"/></svg>
+          </button>
+        </div>
+        <!-- statistika (porcije/kcal/proteini) — prikazuje se ovde samo na desktopu -->
+        <div class="meta meta-side" id="metaSide"></div>
       </div>
 
       <div class="card-body">
@@ -61,7 +65,7 @@
           <div class="notes" id="notes"></div>
         </section>
 
-        <section>
+        <section id="nutritionSection">
           <h3 class="sec">Kalorije i proteini</h3>
           <table class="ledger">
             <colgroup id="ledgerCols"></colgroup>
@@ -101,5 +105,6 @@
 <script src="js/icons.js"></script>
 <script src="js/shopping-list.js"></script>
 <script src="js/app.js"></script>
+<script type="module" src="js/firebase-data.js"></script>
 </body>
 </html>
