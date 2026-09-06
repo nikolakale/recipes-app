@@ -62,6 +62,8 @@ js/icons.js            — kategorijske i po-receptu ilustracije (SVG) + visualH
                           helper koji prikazuje pravu fotografiju ako postoji,
                           inače pada nazad na ilustraciju
 js/shopping-list.js    — lista za kupovinu, čuva se u localStorage (per-browser)
+js/ratings.js          — ocenjivanje recepata (1-5 zvezdica), čuva se u
+                          localStorage (per-browser), default je bez ocene
 js/app.js              — render funkcije (lista, detalji), hash-ruter, init
                           (initApp() se poziva tek kad recepti stignu iz Firestore-a)
 img/                   — prave fotografije jela (.jpg/.webp)

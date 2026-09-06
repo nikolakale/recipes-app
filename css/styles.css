@@ -140,6 +140,7 @@
   .row-meta .cat{ color: var(--sage-deep); font-weight:600; }
   .row-meta .dot{ opacity:0.5; }
   .row-meta .stats{ font-family: var(--font-mono); }
+  .row-meta .stars{ font-family: var(--font-mono); color: var(--gold-deep); font-weight:600; }
 
   .empty-list{
     text-align:center;
@@ -207,6 +208,19 @@
     line-height: 1.5;
     margin: 0 0 18px;
   }
+
+  .rating{ display:flex; gap: 3px; margin: 0 0 16px; }
+  .rating .star{
+    background:none; border:none; padding:0; cursor:pointer;
+    width:24px; height:24px; display:flex; align-items:center; justify-content:center;
+    color: var(--line-strong);
+  }
+  .rating .star svg{
+    width:20px; height:20px; fill:none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round;
+    transition: fill .1s ease, color .1s ease;
+  }
+  .rating .star.filled{ color: var(--gold-deep); }
+  .rating .star.filled svg{ fill: var(--gold); stroke: var(--gold-deep); }
 
   .meta{ display:flex; gap: 10px; margin-bottom: 24px; }
   .meta-side{ display:none; }   /* vidi se samo na desktopu (leva kolona) */
@@ -429,10 +443,12 @@
     .meta-side{ display: flex; margin: 0; }
     /* sadržaj ispod slike u levoj koloni — svoj horizontalni padding */
     .card-media > .meta-side,
+    .card-media > #rating,
     .card-media > #nutritionSection{
       padding: 0 24px;
       margin: 0;
     }
+    .card-media > #rating{ padding-top: 4px; }
     .card-media > #nutritionSection{ padding-bottom: 28px; }
     .card-media .ledger{ font-size: 12px; }
     .card-media .ledger td:first-child{ font-size: 12px; }

@@ -37,6 +37,7 @@ function renderList(){
   filtered.forEach(r => {
     const style = categoryStyle[r.category] || categoryStyle["Užina"];
     const total = getPerServingTotal(r);
+    const rating = getRating(r.id);
     const btn = document.createElement('button');
     btn.className = 'row-card';
     btn.innerHTML = `
@@ -47,6 +48,7 @@ function renderList(){
           <span class="cat">${r.category}</span>
           <span class="dot">·</span>
           <span class="stats">${total.kcal} kcal${r.nutrition.hasProtein ? ' · ' + total.protein : ''}</span>
+          ${rating ? `<span class="dot">·</span><span class="stars">★ ${rating}</span>` : ''}
         </span>
       </span>`;
     btn.addEventListener('click', () => {
@@ -74,6 +76,8 @@ function renderDetail(r){
   const saveBtn = document.getElementById('saveBtn');
   saveBtn.classList.remove('saved');
   saveBtn.onclick = function(){ this.classList.toggle('saved'); };
+
+  renderRatingWidget(r.id);
 
   const meta = document.getElementById('meta');
   meta.innerHTML = '';
@@ -182,7 +186,7 @@ function renderDetail(r){
     src.style.display = 'none';
   }
 
-  placeNutrition();
+  placeSidebar();
   updateBadge();
 }
 
@@ -197,6 +201,7 @@ function stat(value, label){
    NAVIGACIJA
 ==================================================================== */
 function showList(){
+  if (!window.recipesLoadError) renderList(); // osveži (npr. ocena promenjena na stranici recepta)
   document.getElementById('listView').style.display = 'block';
   document.getElementById('detailView').style.display = 'none';
   document.getElementById('navList').style.display = 'block';
@@ -238,8 +243,17 @@ function handleRoute(){
 }
 window.addEventListener('popstate', handleRoute);
 
-/* ---- raspored: na desktopu tabela kalorija ide u levu kolonu, ispod statistike ---- */
+/* ---- raspored: na desktopu ocena i tabela kalorija idu u levu kolonu (sidebar), ispod statistike ---- */
 const desktopMQ = window.matchMedia('(min-width: 1000px)');
+function placeRating(){
+  const rating = document.getElementById('rating');
+  if (!rating) return;
+  if (desktopMQ.matches){
+    document.querySelector('.card-media').appendChild(rating);
+  } else {
+    document.querySelector('.card-body').insertBefore(rating, document.getElementById('meta'));
+  }
+}
 function placeNutrition(){
   const section = document.getElementById('nutritionSection');
   if (!section) return;
@@ -249,7 +263,8 @@ function placeNutrition(){
     document.querySelector('.card-body').insertBefore(section, document.getElementById('src'));
   }
 }
-desktopMQ.addEventListener('change', placeNutrition);
+function placeSidebar(){ placeRating(); placeNutrition(); }
+desktopMQ.addEventListener('change', placeSidebar);
 
 document.getElementById('navDetail').addEventListener('click', () => {
   if (location.hash) history.back();
@@ -272,6 +287,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
    INIT — pozvano iz js/firebase-data.js kad recepti stignu iz Firestore-a
 ==================================================================== */
 function initApp(){
+  loadRatings();
   renderFilters();
   if (window.recipesLoadError){
     document.getElementById('list').innerHTML = `<div class="empty-list">Nije moguće učitati recepte. Proveri internet konekciju i pokušaj ponovo.</div>`;
