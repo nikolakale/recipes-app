@@ -7,6 +7,9 @@ Lična kolekcija recepata (zdravi, high-protein obroci).
 - **Podaci:** recepti žive u **Firestore-u** (Firebase projekat `homeapps-c4df4`),
   kolekcija `recipes`, jedan dokument po receptu (`id` = slug = ID dokumenta).
   Web app ih samo čita; pisanje ide preko Claude-a.
+- **Ocene:** posebna kolekcija `ratings/{recipeId}` (`{rating: 1-5, updatedAt}`).
+  Za razliku od `recipes`, web app ovde **piše direktno** (nema login u appu) —
+  vidi bezbednosnu napomenu u `firestore.rules` i "Poznata ograničenja" dole.
 
 ## Arhitektura
 
@@ -56,21 +59,26 @@ Lična kolekcija recepata (zdravi, high-protein obroci).
 index.html            — skelet stranice, referencira css/js fajlove
 css/styles.css         — sav stil (jedan fajl), responsive (mobilni → 3-kolonski desktop)
 js/data.js             — SAMO `CATEGORIES` niz (recepti više nisu ovde)
-js/firebase-data.js    — (ES modul) učita recepte iz Firestore-a, napuni globalni
-                          `window.recipes`, pa pozove `initApp()` iz app.js
+js/firebase-data.js    — (ES modul) učita recepte i ocene iz Firestore-a, napuni
+                          `window.recipes` / `window.ratings`, izloži
+                          `window.rateRecipe(id, value)` za pisanje ocene,
+                          pa pozove `initApp()` iz app.js
 js/icons.js            — kategorijske i po-receptu ilustracije (SVG) + visualHTML()
                           helper koji prikazuje pravu fotografiju ako postoji,
                           inače pada nazad na ilustraciju
 js/shopping-list.js    — lista za kupovinu, čuva se u localStorage (per-browser)
-js/ratings.js          — ocenjivanje recepata (1-5 zvezdica), čuva se u
-                          localStorage (per-browser), default je bez ocene
+js/ratings.js          — ocenjivanje recepata (1-5 zvezdica), čuva se u Firestore-u
+                          (kolekcija `ratings`) preko `window.rateRecipe()`,
+                          default je bez ocene, ista ocena na svim uređajima
 js/app.js              — render funkcije (lista, detalji), hash-ruter, init
                           (initApp() se poziva tek kad recepti stignu iz Firestore-a)
 img/                   — prave fotografije jela (.jpg/.webp)
 
 firebase.json          — konfiguracija za `firebase-tools` (samo Firestore rules)
 .firebaserc            — vezuje folder za projekat homeapps-c4df4
-firestore.rules        — javno čitanje `recipes`, nikakvo pisanje preko klijenta
+firestore.rules        — `recipes`: javno čitanje, nikakvo pisanje preko klijenta.
+                          `ratings`: javno čitanje i pisanje, ali usko ograničeno
+                          (samo `rating` 1-5, samo za postojeći recipeId)
 
 scripts/               — admin alati (Node, koriste firebase-admin + service account)
   migrate-to-firestore.mjs   — jednokratna migracija starog data.js → Firestore
@@ -185,6 +193,13 @@ npx firebase-tools deploy --only firestore:rules --project homeapps-c4df4
 
 - Web app i dalje nema build korak (namerno). `scripts/` i `worker/` koriste npm.
 - Lista za kupovinu je per-browser (localStorage), ne per-account.
+- Ocene (`ratings` kolekcija) su jedino mesto gde web app piše direktno u
+  Firestore, bez logina — svesno prihvaćen rizik jer je app lična/hobi
+  razmera. Pravila u `firestore.rules` ograničavaju pisanje na `rating` 1-5 i
+  samo za postojeći recipeId, pa je najgori scenario da neko izvana promeni
+  ocene na nasumične validne vrednosti — ne može brisati/menjati recepte ni
+  pisati proizvoljne podatke. Nema sinhronizacije uživo (real-time listener);
+  ocena sa drugog uređaja se vidi tek posle refresh-a.
 - OAuth login Worker-a je jednokorisnički (jedna lozinka, hardkodiran `userId`);
   dovoljno za ličnu upotrebu, nije pravi multi-user auth.
 - `scripts/seed-recipes.json` je zamrznut na stanju od početne migracije — nije

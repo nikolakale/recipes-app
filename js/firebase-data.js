@@ -4,7 +4,7 @@
    radi sa običnim globalnim `recipes` nizom, kao i pre.
 ==================================================================== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { getFirestore, collection, getDocs, query, orderBy }
+import { getFirestore, collection, getDocs, query, orderBy, doc, setDoc, deleteDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -19,14 +19,27 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// Ocene: čita ih ceo svet, piše ih klijent direktno (bez logina) —
+// vidi napomenu uz `match /ratings/` u firestore.rules.
+window.rateRecipe = async function(recipeId, value){
+  const ref = doc(db, "ratings", recipeId);
+  if (value > 0) await setDoc(ref, { rating: value, updatedAt: serverTimestamp() });
+  else await deleteDoc(ref);
+};
+
 async function loadRecipesAndStart(){
   try {
-    const q = query(collection(db, "recipes"), orderBy("order"));
-    const snap = await getDocs(q);
-    window.recipes = snap.docs.map(d => d.data());
+    const [recipesSnap, ratingsSnap] = await Promise.all([
+      getDocs(query(collection(db, "recipes"), orderBy("order"))),
+      getDocs(collection(db, "ratings")),
+    ]);
+    window.recipes = recipesSnap.docs.map(d => d.data());
+    window.ratings = {};
+    ratingsSnap.docs.forEach(d => { window.ratings[d.id] = d.data().rating; });
   } catch (e){
     console.error("Učitavanje recepata iz Firestore-a nije uspelo:", e);
     window.recipes = [];
+    window.ratings = {};
     window.recipesLoadError = true;
   }
   window.initApp();

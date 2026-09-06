@@ -1,27 +1,15 @@
 /* ====================================================================
-   OCENJIVANJE RECEPATA — 1-5 zvezdica, čuva se u localStorage (isti
-   pristup kao lista za kupovinu: per-browser, ne per-account). Default
-   je "bez ocene" (0) dok korisnik ne klikne zvezdicu.
+   OCENJIVANJE RECEPATA — 1-5 zvezdica. Čuva se u Firestore-u (kolekcija
+   `ratings`, jedan dokument po receptu) da bi ocena bila ista na svim
+   uređajima. Web app piše direktno preko `window.rateRecipe()` iz
+   js/firebase-data.js — vidi napomenu uz firestore.rules. `ratingsCache`
+   je samo lokalna kopija za brz prikaz, popuni se iz `window.ratings`
+   kad recepti i ocene stignu iz Firestore-a. Default je "bez ocene" (0).
 ==================================================================== */
-const RATINGS_KEY = 'recipeRatings';
 let ratingsCache = {};
-let ratingsStorageUsable = true;
 
 function loadRatings(){
-  if (ratingsStorageUsable){
-    try {
-      const raw = localStorage.getItem(RATINGS_KEY);
-      if (raw) ratingsCache = JSON.parse(raw);
-    } catch(e){
-      ratingsStorageUsable = false; // npr. privatni režim u nekim browserima
-    }
-  }
-}
-
-function persistRatings(){
-  if (!ratingsStorageUsable) return;
-  try { localStorage.setItem(RATINGS_KEY, JSON.stringify(ratingsCache)); }
-  catch(e){ ratingsStorageUsable = false; }
+  ratingsCache = Object.assign({}, window.ratings);
 }
 
 function getRating(recipeId){
@@ -29,9 +17,10 @@ function getRating(recipeId){
 }
 
 function setRating(recipeId, value){
-  if (value > 0) ratingsCache[recipeId] = value;
-  else delete ratingsCache[recipeId];
-  persistRatings();
+  ratingsCache[recipeId] = value; // optimistički prikaz, ne čekamo mrežu
+  if (!value) delete ratingsCache[recipeId];
+  window.rateRecipe(recipeId, value)
+    .catch(e => console.error('Čuvanje ocene nije uspelo:', e));
 }
 
 const STAR_ICON = '<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.4 6.9.7-5.2 4.7 1.5 6.9L12 17.8l-6.1 3.4 1.5-6.9-5.2-4.7 6.9-.7z"/></svg>';

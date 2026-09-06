@@ -8,5 +8,20 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+
+    // Ocene recepata: web app piše direktno sa klijenta (nema login-a u appu),
+    // pa je pisanje javno ali usko ograničeno — samo polje `rating` (1-5),
+    // samo za recipeId koji stvarno postoji u `recipes`. Najgori slučaj zloupotrebe
+    // je da neko izvana promeni ocene na nasumične validne vrednosti; ne može da
+    // briše/menja recepte niti da piše proizvoljne podatke.
+    match /ratings/{recipeId} {
+      allow read: if true;
+      allow create, update: if exists(/databases/$(database)/documents/recipes/$(recipeId))
+                    && request.resource.data.keys().hasOnly(['rating', 'updatedAt'])
+                    && request.resource.data.rating is int
+                    && request.resource.data.rating >= 1
+                    && request.resource.data.rating <= 5;
+      allow delete: if true;
+    }
   }
 }
