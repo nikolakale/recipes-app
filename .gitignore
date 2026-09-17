@@ -1,5 +1,6 @@
 node_modules/
 .DS_Store
 *.log
-secrets/
+secrets/*
+!secrets/upload-token.php.example
 .idea/
