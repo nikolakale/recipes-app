@@ -104,6 +104,17 @@ kao `.html` i otvori u browseru):
 </form>
 ```
 
+**Preko Claude (automatski, MCP konektor "Moji recepti"):**
+
+Ako je `RECIPES_UPLOAD_URL`/`RECIPES_UPLOAD_TOKEN` podešen na Cloudflare Worker-u
+(vidi `CLAUDE.md` → "Upload slika"), Claude može direktno da zove alat
+`upload_recipe_image` iz bilo koje sesije koja ima konektor — nije potreban
+ni `curl` ni formular. Worker onda sam šalje POST na `upload.php`.
+
+Napomena: **Claude Code na webu/u cloud sandboxu ne može ovo pozvati
+direktno** (izlazni internet iz tog sandboxa je ograničen na uzak allowlist),
+pa taj put ide isključivo preko Worker-a, ne direktno.
+
 ### Napomene
 
 - Endpoint prima samo `POST`; svaki drugi metod vraća `405`.
@@ -111,3 +122,8 @@ kao `.html` i otvori u browseru):
   HTTP status kodom (`400`/`403`/`405`/`500`).
 - Koristi HTTPS na serveru gde je `upload.php` deploy-ovan — token putuje u
   header/POST telu, i bez HTTPS-a je vidljiv na mreži.
+- **Ne ostavljaj placeholder token** (`OVDE-UPISI-SVOJ-TAJNI-TOKEN` iz
+  `secrets/upload-token.php.example`) kao stvarni token — on je javno vidljiv
+  (u ovom repo-u i u istoriji razgovora), pa ne pruža nikakvu zaštitu. Generiši
+  pravi nasumičan token (vidi gore) čim server postane dostupan van tvoje
+  lokalne mreže (npr. preko Tailscale Funnel-a ili sličnog).

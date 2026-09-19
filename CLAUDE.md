@@ -22,7 +22,8 @@ Lična kolekcija recepata (zdravi, high-protein obroci).
         │                                     │
         │ node scripts/*.mjs                  │ MCP alati: list_recipes,
         │ (firebase-admin,                    │ get_recipe, save_recipe,
-        │  service account ključ)             │ delete_recipe
+        │  service account ključ)             │ delete_recipe,
+        │                                     │ upload_recipe_image
         │                                     ▼
         │                        ┌─────────────────────────────────┐
         │                        │  Cloudflare Worker              │
@@ -43,7 +44,7 @@ Lična kolekcija recepata (zdravi, high-protein obroci).
                                  │  čitanje uživo (Firebase JS SDK)
                                  ▼
               ┌───────────────────────────────────────┐
-              │  FE app — statički sajt (korisnikov   │
+              │  FE app — statični sajt (korisnikov   │
               │  server). index.html + js/ + css/     │
               │  js/firebase-data.js → window.recipes │
               │  → initApp().  SAMO PRIKAZ, ne piše.  │
@@ -51,6 +52,25 @@ Lična kolekcija recepata (zdravi, high-protein obroci).
 
    ČITANJE ide samo u jednom smeru: Firestore → FE app.
    FE app nema kredencijale za pisanje i ne zna za Worker.
+
+   UPLOAD SLIKA (odvojen put, ne ide preko Firestore-a)
+   ─────────────────────────────────────────────────────
+
+   Claude (bilo koja sesija sa MCP konektorom)
+        │  MCP alat: upload_recipe_image({ filename, imageBase64 })
+        ▼
+   Cloudflare Worker (src/image-upload.js)
+        │  multipart POST, header X-Upload-Token (RECIPES_UPLOAD_TOKEN secret)
+        ▼
+   Tailscale Funnel — https://kalenas.tail84f63b.ts.net/apps/.../upload.php
+        │  (fiksan javan URL do FE servera na kućnoj mreži, bez port forwarding-a)
+        ▼
+   upload.php  →  img/  (na FE serveru)
+
+   Napomena: Claude Code na webu/u cloud sandboxu NE MOŽE pozvati upload.php
+   direktno (odlazni internet iz sandboxa je ograničen uskim allowlist-om koji
+   ne uključuje *.ts.net) — upload ide isključivo preko Worker-a, koji ima
+   neograničen pristup internetu.
 ```
 
 ## Struktura
@@ -72,7 +92,10 @@ js/ratings.js          — ocenjivanje recepata (1-5 zvezdica), čuva se u Fires
                           default je bez ocene, ista ocena na svim uređajima
 js/app.js              — render funkcije (lista, detalji), hash-ruter, init
                           (initApp() se poziva tek kad recepti stignu iz Firestore-a)
-img/                   — prave fotografije jela (.jpg/.webp)
+img/                   — prave fotografije jela (.jpg/.webp), .htaccess sprečava
+                          izvršavanje skripti u ovom folderu
+upload.php             — endpoint za upload slika u img/, zaštićen tokenom
+                          (vidi "Upload slika (upload.php)" dole)
 
 firebase.json          — konfiguracija za `firebase-tools` (samo Firestore rules)
 .firebaserc            — vezuje folder za projekat homeapps-c4df4
@@ -89,14 +112,20 @@ scripts/               — admin alati (Node, koriste firebase-admin + service a
 
 worker/                — Cloudflare Worker: MCP server za pisanje u bazu
   src/index.js         — OAuth 2.1 provider (workers-oauth-provider) + login stranica
-  src/mcp-server.js    — definicije MCP alata (list/get/save/delete recipe)
+  src/mcp-server.js    — definicije MCP alata (list/get/save/delete recipe,
+                          upload_recipe_image)
   src/firestore.js     — Firestore REST klijent (JWT potpis preko Web Crypto)
+  src/image-upload.js  — klijent koji zove upload.php (multipart POST, token)
 
-secrets/               — NIKAD u git (u .gitignore). Sadrži:
+secrets/               — NIKAD u git (u .gitignore), osim upload-token.php.example
+                          (template, bez pravog tokena — vidi dole). Sadrži:
   firebase/…-adminsdk-….json — service account ključ
   cloudflare-api-token.txt   — CF token za `wrangler deploy`
   oauth-passphrase.txt       — lozinka za login stranicu Worker-a
   cloudflare-mcp-token.txt   — (stari statični bearer, više se ne koristi)
+  upload-token.php.example   — template za token koji čita upload.php
+  upload-token.php           — (na FE serveru, ne u ovom repo checkout-u) pravi
+                                tajni token za upload.php
 ```
 
 ## Kako se dodaju / menjaju recepti
@@ -107,8 +136,11 @@ Recepti se **ne edituju u kodu** — upisuju se u Firestore. Dva puta, oba idu p
    (i `delete-recipe.mjs <id>`). Koristi service account iz `secrets/`.
 2. **Bilo koji uređaj (uklj. mobilni Claude):** MCP konektor **"Moji recepti"** u
    claude.ai podešavanjima → alati `list_recipes`, `get_recipe`, `save_recipe`,
-   `delete_recipe`. Iza njega je Cloudflare Worker
+   `delete_recipe`, `upload_recipe_image`. Iza njega je Cloudflare Worker
    `https://recepti-mcp.nikolakale-recepti.workers.dev/mcp`.
+   `upload_recipe_image` prima base64 sadržaj slike i ime, i sam je prosledi
+   (multipart POST + token) do `upload.php` na FE serveru — vidi "Upload slika"
+   dole za detalje te veze.
 
 Oblik objekta recepta (isti kao stari format iz data.js):
 naslov → opis → porcije → sastojci → koraci → napomene → tabela kalorija/proteina.
@@ -139,7 +171,7 @@ steps[], notes[]?, nutrition{hasProtein, rows[], totals[]}, source?`.
    `/.well-known/…` sa Worker-a).
 5. Klikni Connect → otvara se login stranica Worker-a → unesi lozinku iz
    `secrets/oauth-passphrase.txt`.
-6. Posle autorizacije vidljiva su 4 alata. Grant se čuva u `OAUTH_KV`.
+6. Posle autorizacije vidljivo je 5 alata. Grant se čuva u `OAUTH_KV`.
 
 ### Prva postavka od nule (disaster recovery)
 
@@ -153,7 +185,7 @@ pa `npx firebase-tools deploy --only firestore:rules` (traži `firebase login`).
 `secrets/cloudflare-api-token.txt`. Registruj `workers.dev` poddomen
 (dashboard, ili `PUT /accounts/{id}/workers/subdomain` preko API-ja). Zatim iz
 `worker/`: `npx wrangler kv namespace create OAUTH_KV` (ID u `wrangler.jsonc`),
-postavi 4 secret-a (vidi dole), `npx wrangler deploy`. Generiši `AUTH_PASSPHRASE`
+postavi 6 secret-a (vidi dole), `npx wrangler deploy`. Generiši `AUTH_PASSPHRASE`
 i snimi u `secrets/oauth-passphrase.txt`.
 
 ## Redeploy / operacije
@@ -168,13 +200,42 @@ npx wrangler secret put <IME>             # izmena secret-a (čita vrednost sa s
 ```
 
 Worker secrets: `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
-(sve iz service account JSON-a), `AUTH_PASSPHRASE` (login lozinka).
+(sve iz service account JSON-a), `AUTH_PASSPHRASE` (login lozinka), `RECIPES_UPLOAD_URL`
+(Tailscale Funnel URL do `upload.php`, npr. `https://kalenas.tail84f63b.ts.net/apps/recepies/upload.php`),
+`RECIPES_UPLOAD_TOKEN` (mora biti isti kao token u `secrets/upload-token.php` na FE
+serveru — vidi "Upload slika" dole).
 KV namespace `OAUTH_KV` (`9024c53faae646b3adcad9df1df9bfa4`) čuva OAuth grantove.
 
 Firestore rules (iz root foldera, sa `firebase login` autorizacijom korisnika):
 ```
 npx firebase-tools deploy --only firestore:rules --project homeapps-c4df4
 ```
+
+## Upload slika (`upload.php` + Tailscale Funnel + `upload_recipe_image`)
+
+Slike recepata žive u `img/` na FE serveru (korisnikov NAS), ne u Firestore-u.
+`upload.php` je token-zaštićen endpoint koji ih prima — pun opis bezbednosnih
+mera je u `README.md` ("Upload slika").
+
+Da bi Worker (i preko njega bilo koja Claude sesija sa MCP konektorom) mogao
+da pozove `upload.php` na FE serveru koji je na lokalnoj mreži (Synology NAS),
+FE server je izložen na internet preko **Tailscale Funnel-a**: besplatno,
+fiksan `*.ts.net` URL koji se ne menja, bez port-forwarding-a na ruteru i radi
+i iza CGNAT-a (za razliku od DDNS-a). Cloudflare Quick Tunnel je odbačen jer
+mu se URL menja na svaki restart; named Cloudflare Tunnel bi zahtevao kupljen
+domen. Trenutni URL: `https://kalenas.tail84f63b.ts.net/apps/recepies/upload.php`.
+
+Tok: Claude poziva MCP alat `upload_recipe_image({ filename, imageBase64 })` →
+Worker (`src/image-upload.js`) šalje multipart POST na taj URL sa
+`X-Upload-Token` header-om (iz `RECIPES_UPLOAD_TOKEN` secret-a) → `upload.php`
+snima fajl u `img/` i vraća `{ ok, filename, path }` → Worker vrati `path`
+(npr. `./img/naslov.jpg`), koji ide u `image` polje pri `save_recipe`.
+
+**Napomena za buduće Claude sesije:** *Claude Code na webu/u cloud sandboxu ne
+može direktno pozvati `upload.php`* — taj sandbox ima strogu allowlist za
+odlazni internet saobraćaj koja ne uključuje `*.ts.net` ni gotovo bilo koji
+drugi javni domen. Zato upload ide isključivo preko Worker-a (koji ima
+neograničen internet pristup), ne direktno iz agent sandboxa.
 
 ## Dizajn sistem (u `css/styles.css`)
 
