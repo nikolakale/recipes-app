@@ -98,9 +98,9 @@ export function buildServer(env){
   server.registerTool(
     "upload_recipe_image",
     {
-      description: "Upload-uje sliku recepta (JPG/PNG/WEBP/GIF) u img/ folder na korisnikovom serveru, preko upload.php. Vraća putanju (npr. './img/naziv.jpg') koju treba upisati u polje 'image' recepta pri pozivu save_recipe.",
+      description: "Upload-uje sliku recepta (JPG/PNG/WEBP/GIF) u Cloudflare R2. Vraća punu javnu URL adresu koju treba upisati u polje 'image' recepta pri pozivu save_recipe.",
       inputSchema: z.object({
-        filename: z.string().describe("Predloženo ime fajla, npr. 'grcki-jogurt-med-orasi.jpg'. Server sam sanitizuje ime i određuje ekstenziju na osnovu stvarnog sadržaja slike, tako da ekstenzija u ovom imenu nije presudna."),
+        filename: z.string().describe("Predloženo ime fajla, npr. 'grcki-jogurt-med-orasi.jpg'. Server sanitizuje ime, dodaje jedinstveni sufiks i određuje ekstenziju na osnovu stvarnog sadržaja slike, tako da ekstenzija u ovom imenu nije presudna."),
         imageBase64: z.string().describe("Sadržaj slike, base64-enkodiran (bez 'data:image/...;base64,' prefiksa)."),
       }),
     },

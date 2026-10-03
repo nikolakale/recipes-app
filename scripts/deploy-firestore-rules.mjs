@@ -46,19 +46,14 @@ console.log('Ruleset kreiran:', ruleset.name);
 
 // 2) objavi ga kao aktivan release za Firestore (default baza)
 const releaseName = `projects/${projectId}/releases/cloud.firestore`;
+// Service account nema `firebaserules.releases.create`, ali release već postoji,
+// pa prvo ažuriramo (PATCH); create je samo rezerva za prvu postavku.
 try {
-  await api('POST', `${base}/projects/${projectId}/releases`, {
-    name: releaseName,
-    rulesetName: ruleset.name,
-  });
-  console.log('Release kreiran:', releaseName);
+  await api('PATCH', `${base}/${releaseName}`, { release: { name: releaseName, rulesetName: ruleset.name } });
+  console.log('Release ažuriran:', releaseName);
 } catch (e) {
-  if (String(e.message).includes('ALREADY_EXISTS') || String(e.message).includes('409')) {
-    await api('PATCH', `${base}/${releaseName}`, { release: { name: releaseName, rulesetName: ruleset.name } });
-    console.log('Release ažuriran:', releaseName);
-  } else {
-    throw e;
-  }
+  await api('POST', `${base}/projects/${projectId}/releases`, { name: releaseName, rulesetName: ruleset.name });
+  console.log('Release kreiran:', releaseName);
 }
 
 console.log('Firestore security rules su aktivne.');

@@ -4,3 +4,4 @@ node_modules/
 secrets/*
 !secrets/upload-token.php.example
 .idea/
+dist/
