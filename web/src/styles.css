@@ -37,6 +37,9 @@ body{
   padding: 0 0 56px;
 }
 
+/* #root je flex dete body-ja: bez eksplicitne širine steže se na sadržaj
+   (npr. red filter-čipova), pa .page{width:100%} postane šira od ekrana */
+#root{ width:100%; min-width:0; display:flex; flex-direction:column; align-items:center; }
 .page{ width:100%; max-width: 480px; min-width:0; }
 
 /* ---------- login screen ---------- */
