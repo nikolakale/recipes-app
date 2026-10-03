@@ -10,7 +10,7 @@ export default function TopBar({ view, count, onBack, onSignOut, isAdmin, onAdmi
         <h2><span style={{ fontFamily: 'var(--font-serif)', fontSize: 21, fontWeight: 600 }}>Moji recepti</span></h2>
       )}
       {view === "list" && (
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="topbar-actions">
           <span className="count">{count} {count === 1 ? 'recept' : 'recepata'}</span>
           {isAdmin && <button className="signout-link" onClick={onAdmin}>Admin</button>}
           <button className="signout-link" onClick={onSignOut}>Odjavi se</button>
