@@ -11,7 +11,7 @@
 ==================================================================== */
 import { initializeApp } from "firebase/app";
 import {
-  initializeFirestore, collection, doc, getDocs, setDoc, deleteDoc, query, orderBy, serverTimestamp,
+  initializeFirestore, collection, doc, getDocs, addDoc, setDoc, deleteDoc, query, orderBy, serverTimestamp,
 } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 
@@ -99,6 +99,31 @@ export async function rejectRequest(request){
 
 export async function revokeAccess(email){
   await deleteDoc(doc(db, "allowedUsers", email.toLowerCase()));
+}
+
+/* ---------- komentari: recipes/{id}/comments ---------- */
+export function getCurrentUser(){
+  return auth.currentUser;
+}
+
+export async function loadComments(recipeId){
+  const snap = await getDocs(query(collection(db, "recipes", recipeId, "comments"), orderBy("createdAt", "desc")));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function addComment(recipeId, text){
+  const user = auth.currentUser;
+  await addDoc(collection(db, "recipes", recipeId, "comments"), {
+    uid: user.uid,
+    authorName: user.displayName || user.email,
+    photoURL: user.photoURL || "",
+    text,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteComment(recipeId, commentId){
+  await deleteDoc(doc(db, "recipes", recipeId, "comments", commentId));
 }
 
 export async function rateRecipe(recipeId, value){

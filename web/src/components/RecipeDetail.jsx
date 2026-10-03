@@ -4,6 +4,7 @@ import { getPerServingTotal } from "../utils.js";
 import RatingWidget from "./RatingWidget.jsx";
 import IngredientRow from "./IngredientRow.jsx";
 import NutritionTable from "./NutritionTable.jsx";
+import Comments from "./Comments.jsx";
 
 function Stat({ value, label }){
   return (
@@ -106,6 +107,8 @@ export default function RecipeDetail({ recipe }){
               <NutritionTable nutrition={recipe.nutrition} />
             </section>
           )}
+
+          <Comments recipeId={recipe.id} />
 
           {recipe.source && (
             <div className="src">
