@@ -50,6 +50,27 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Komentari: recipes/{recipeId}/comments/{id}. Svaki odobreni korisnik
+    // piše pod svojim uid-om (ime i slika sa Google naloga se kopiraju u
+    // komentar); briše svoje komentare, admin briše bilo čiji. Bez izmene.
+    match /recipes/{recipeId}/comments/{commentId} {
+      allow read: if isAllowedRecipesUser();
+      allow create: if isAllowedRecipesUser()
+                    && request.resource.data.keys().hasOnly(['uid', 'authorName', 'photoURL', 'text', 'createdAt'])
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.authorName is string
+                    && request.resource.data.authorName.size() <= 200
+                    && request.resource.data.photoURL is string
+                    && request.resource.data.photoURL.size() <= 500
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() >= 1
+                    && request.resource.data.text.size() <= 1000
+                    && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAllowedRecipesUser()
+                    && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
     // Ocene recepata: web app piše DIREKTNO sa klijenta (zvezdice se klikću
     // uživo), pa čitanje i pisanje idu na isti allowlist kao recepti — više
     // nije anonimno/javno kao pre auth-a (vidi CLAUDE.md "Poznata ograničenja"
