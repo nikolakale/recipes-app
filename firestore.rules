@@ -1,27 +1,113 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Recepti: svako može da čita, niko ne piše preko klijenta —
-    // pisanje ide samo preko Admin SDK-a (migracioni skript, Cloudflare Worker),
-    // koji zaobilazi ova pravila.
+    // Nalozi kojima je dozvoljeno da vide/koriste recepti-app (vidi napomenu
+    // uz match-eve ispod). Proširi listu za dodatne korisnike.
+    function isAdmin() {
+      return request.auth != null
+             && request.auth.token.email_verified == true
+             && request.auth.token.email == 'nikolakale@gmail.com';
+    }
+
+    // Admin + svi koje je admin odobrio u admin tabu (dokument
+    // allowedUsers/{email}, email malim slovima).
+    function isAllowedRecipesUser() {
+      return isAdmin()
+             || (request.auth != null
+                 && request.auth.token.email_verified == true
+                 && exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email.lower())));
+    }
+
+    // Odobreni korisnici: samo admin čita/piše. Korisnik može da pročita
+    // SOPSTVENI dokument (to je način da app zna da li ima pristup).
+    match /allowedUsers/{email} {
+      allow read: if isAdmin()
+                  || (request.auth != null && request.auth.token.email.lower() == email);
+      allow write: if isAdmin();
+    }
+
+    // Zahtevi za pristup: prijavljen korisnik bez pristupa upisuje svoj
+    // zahtev (ID dokumenta = njegov uid); admin ih čita i briše.
+    match /accessRequests/{uid} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create, update: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.resource.data.keys().hasOnly(['email', 'displayName', 'requestedAt'])
+                    && request.resource.data.email == request.auth.token.email.lower()
+                    && request.resource.data.displayName is string
+                    && request.resource.data.displayName.size() <= 200;
+      allow delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+    }
+
+    // Recepti: čitanje samo za prijavljene korisnike sa dozvoljenim Google
+    // nalogom (isti allowlist mehanizam kao gym-app) — stranica je javno
+    // dostupna preko Cloudflare Worker URL-a, pa login+allowlist kontroliše
+    // ko sme da je koristi. Pisanje i dalje ide samo preko Admin SDK-a
+    // (migracioni skript, Cloudflare Worker MCP alati), koji zaobilazi
+    // ova pravila.
     match /recipes/{recipeId} {
-      allow read: if true;
+      allow read: if isAllowedRecipesUser();
       allow write: if false;
     }
 
-    // Ocene recepata: web app piše direktno sa klijenta (nema login-a u appu),
-    // pa je pisanje javno ali usko ograničeno — samo polje `rating` (1-5),
-    // samo za recipeId koji stvarno postoji u `recipes`. Najgori slučaj zloupotrebe
-    // je da neko izvana promeni ocene na nasumične validne vrednosti; ne može da
-    // briše/menja recepte niti da piše proizvoljne podatke.
+    // Ocene recepata: web app piše DIREKTNO sa klijenta (zvezdice se klikću
+    // uživo), pa čitanje i pisanje idu na isti allowlist kao recepti — više
+    // nije anonimno/javno kao pre auth-a (vidi CLAUDE.md "Poznata ograničenja"
+    // za istoriju te odluke). Uz auth, granularna validacija polja je pre
+    // defense-in-depth nego neophodnost, ali je jeftino zadržati je.
     match /ratings/{recipeId} {
-      allow read: if true;
-      allow create, update: if exists(/databases/$(database)/documents/recipes/$(recipeId))
+      allow read: if isAllowedRecipesUser();
+      allow create, update: if isAllowedRecipesUser()
+                    && exists(/databases/$(database)/documents/recipes/$(recipeId))
                     && request.resource.data.keys().hasOnly(['rating', 'updatedAt'])
                     && request.resource.data.rating is int
                     && request.resource.data.rating >= 1
                     && request.resource.data.rating <= 5;
-      allow delete: if true;
+      allow delete: if isAllowedRecipesUser();
+    }
+
+    // ========================================================================
+    // VAŽNA NAPOMENA: ovo je ISTI Firebase projekat (homeapps-c4df4) kao
+    // gym-app repo. `firebase deploy --only firestore:rules` ZAMENJUJE ceo
+    // ruleset projekta, ne dodaje samo pravila iz ovog fajla — zato ovaj fajl
+    // mora sadržati i pravila iz gym-app-a (ispod, kopirana), pored pravila
+    // za recepti-app iznad. Ako se pravila u gym-app/firestore.rules
+    // promene, prepiši izmenu i ovde (i obrnuto) PRE sledećeg deploy-a iz
+    // bilo kog od ta dva repoa — inače će jedan deploy tiho obrisati
+    // pravila drugog. PRE deploy-a povuci živi ruleset i uporedi (diff).
+    // ========================================================================
+
+    // --- Gym-app (kopirano iz gym-app/firestore.rules) ---
+    function isAllowedGymUser() {
+      return request.auth != null
+             && request.auth.token.email in ['nikolakale@gmail.com'];
+    }
+
+    // Trening PLANOVI: sadržaj kreira isključivo Claude/MCP (Admin SDK), web
+    // app sme samo da čita i briše (klijent ručno briše exercises → sessions
+    // → plan, pa delete mora postojati na sva tri nivoa).
+    match /users/{userId}/plans/{planId} {
+      allow read: if isAllowedGymUser();
+      allow create, update: if false;
+      allow delete: if isAllowedGymUser();
+    }
+    match /users/{userId}/plans/{planId}/sessions/{sessionId} {
+      allow read: if isAllowedGymUser();
+      allow create, update: if false;
+      allow delete: if isAllowedGymUser();
+    }
+    match /users/{userId}/plans/{planId}/sessions/{sessionId}/exercises/{exerciseId} {
+      allow read: if isAllowedGymUser();
+      allow create, update: if false;
+      allow delete: if isAllowedGymUser();
+    }
+
+    // Log treninga i telesne mere: web app piše direktno.
+    match /users/{userId}/workoutLog/{logId} {
+      allow read, write: if isAllowedGymUser();
+    }
+    match /users/{userId}/bodyMetrics/{entryId} {
+      allow read, write: if isAllowedGymUser();
     }
   }
 }

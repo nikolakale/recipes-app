@@ -1,11 +1,8 @@
 {
   "name": "moji-recepti",
   "version": "1.0.0",
-  "description": "Lična kolekcija zdravih, high-protein recepata — vanilla JS, bez build koraka.",
+  "description": "Lična kolekcija zdravih, high-protein recepata — React (Vite) frontend, Cloudflare Worker/MCP backend, Firestore baza.",
   "private": true,
-  "scripts": {
-    "dev": "npx serve ."
-  },
   "devDependencies": {
     "firebase-admin": "^14.3.0"
   }

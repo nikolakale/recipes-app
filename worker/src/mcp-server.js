@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { listRecipes, getRecipe, saveRecipe, deleteRecipe } from "./firestore.js";
+import { uploadRecipeImage } from "./image-upload.js";
 
 const CATEGORIES = ["Doručak", "Užina", "Dezert", "Glavni obrok"];
 
@@ -91,6 +92,21 @@ export function buildServer(env){
       }
       await saveRecipe(env, recipe.id, { ...recipe, order });
       return { content: [{ type: "text", text: `Sačuvan recept "${recipe.id}" (${existing ? "ažuriran" : "nov, order " + order}).` }] };
+    }
+  );
+
+  server.registerTool(
+    "upload_recipe_image",
+    {
+      description: "Upload-uje sliku recepta (JPG/PNG/WEBP/GIF) u Cloudflare R2. Vraća punu javnu URL adresu koju treba upisati u polje 'image' recepta pri pozivu save_recipe.",
+      inputSchema: z.object({
+        filename: z.string().describe("Predloženo ime fajla, npr. 'grcki-jogurt-med-orasi.jpg'. Server sanitizuje ime, dodaje jedinstveni sufiks i određuje ekstenziju na osnovu stvarnog sadržaja slike, tako da ekstenzija u ovom imenu nije presudna."),
+        imageBase64: z.string().describe("Sadržaj slike, base64-enkodiran (bez 'data:image/...;base64,' prefiksa)."),
+      }),
+    },
+    async ({ filename, imageBase64 }) => {
+      const result = await uploadRecipeImage(env, filename, imageBase64);
+      return { content: [{ type: "text", text: `Upload-ovana slika: ${result.path}` }] };
     }
   );
 

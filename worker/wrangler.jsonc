@@ -12,4 +12,13 @@
 			"id": "9024c53faae646b3adcad9df1df9bfa4",
 		},
 	],
+	"vars": {
+		"RECIPES_IMAGES_PUBLIC_URL": "https://pub-831ec959efde4f9287af567989c1613f.r2.dev",
+	},
+	"r2_buckets": [
+		{
+			"binding": "RECIPES_IMAGES",
+			"bucket_name": "recepti-images",
+		},
+	],
 }

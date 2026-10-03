@@ -1,7 +1,13 @@
 /* ====================================================================
-   ILUSTRACIJE PO KATEGORIJI (fallback dok nema pravih fotografija)
+   ILUSTRACIJE — portovano 1:1 iz js/icons.js (originalni vanilla app).
+   Svaka ikonica je gotov SVG markup string (isti stroke stil kao pre),
+   ubacuje se preko dangerouslySetInnerHTML da se izbegne ručno prepisivanje
+   svakog elementa u JSX — ovo su statični, autorski stringovi (bez
+   korisničkog unosa), pa nema XSS rizika.
 ==================================================================== */
-const categoryStyle = {
+import { useState } from "react";
+
+export const categoryStyle = {
   "Doručak": { tint: "var(--gold-tint)", color: "var(--gold-deep)" },
   "Užina": { tint: "var(--sage-tint)", color: "var(--sage-deep)" },
   "Dezert": { tint: "var(--rose-tint)", color: "var(--rose-deep)" },
@@ -83,26 +89,7 @@ const recipeIcons = {
     </svg>`,
 };
 
-function recipeIcon(r){
-  return recipeIcons[r.id] || categoryIcon(r.category);
-}
-
-/* Prikazuje pravu fotografiju (recipe.image) ako postoji, uz siguran pad
-   nazad na ilustraciju ako slika ne postoji ili se ne učita. */
-function visualHTML(recipe, sizePercent){
-  if (recipe.image){
-    return `<img src="${recipe.image}" alt="${recipe.title}" data-fallback-id="${recipe.id}" data-size="${sizePercent}"
-      style="width:100%;height:100%;object-fit:cover;display:block;" onerror="window.__iconFallback(this)">`;
-  }
-  return recipeIcon(recipe).replace('<svg ', `<svg style="width:${sizePercent};height:${sizePercent};" `);
-}
-window.__iconFallback = function(img){
-  const r = recipes.find(x => x.id === img.dataset.fallbackId);
-  const parent = img.parentElement;
-  if (!parent || !r) return;
-  parent.innerHTML = recipeIcon(r).replace('<svg ', `<svg style="width:${img.dataset.size || '60%'};height:${img.dataset.size || '60%'};" `);
-};
-function categoryIcon(cat){
+function categoryIconMarkup(cat){
   switch(cat){
     case "Doručak":
       return `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -133,3 +120,27 @@ function categoryIcon(cat){
   }
 }
 
+function recipeIconMarkup(recipe){
+  return recipeIcons[recipe.id] || categoryIconMarkup(recipe.category);
+}
+
+function withSize(svgMarkup, sizePercent){
+  return svgMarkup.replace('<svg ', `<svg style="width:${sizePercent};height:${sizePercent};" `);
+}
+
+/* Prikazuje pravu fotografiju (recipe.image) ako postoji, uz siguran pad
+   nazad na ilustraciju ako slika ne postoji ili se ne učita. */
+export function RecipeVisual({ recipe, sizePercent }){
+  const [imgFailed, setImgFailed] = useState(false);
+  if (recipe.image && !imgFailed){
+    return (
+      <img
+        src={recipe.image}
+        alt={recipe.title}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        onError={() => setImgFailed(true)}
+      />
+    );
+  }
+  return <span dangerouslySetInnerHTML={{ __html: withSize(recipeIconMarkup(recipe), sizePercent) }} />;
+}
